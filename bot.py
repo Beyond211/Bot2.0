@@ -225,9 +225,7 @@ def findPhoneNumbersCommand(update: Update, context):
 
 def find_phone_number(update: Update, context):
     user_input = update.message.text
-
     phoneNumRegex = re.compile(r'\+?[78][- ]?(?:\(\d{3}\)|\d{3})[- ]?\d{3}[- ]?\d{2}[- ]?\d{2}')
-    
     phoneNumberList = phoneNumRegex.findall(user_input)
 
     if not phoneNumberList:
@@ -240,9 +238,8 @@ def find_phone_number(update: Update, context):
     phoneNumbers = ''
     for i, phone_number in enumerate(unique_phone_list, 1):
         phoneNumbers += f'{i}. {phone_number}\n'
-    
-    context.user_data['phone_list'] = unique_phone_list  # Исправлено для сохранения уникальных номеров
     update.message.reply_text(phoneNumbers)
+    context.user_data['phone_list'] = unique_phone_list
     update.message.reply_text('Хотите сохранить найденные номера в БД?[да|нет]: ')
     return 'confirm_save_number'
 
