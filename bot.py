@@ -254,21 +254,27 @@ def confirm_save_number(update: Update, context):
                     try:
                         with connection, cursor:
                             saved_phone_numbers = 0
-                            for phone_number in context.user_data['phone_list']:
-                                try:
-                                    cursor.execute("INSERT INTO phone_numbers (phone_number) VALUES (%s);", (phone_number,))
-                                except Exception as e:
-                                    logging.error("Ошибка при вставке номера: %s", e)
-                                    pass
+                            for phone_numbers in context.user_data['phone_list']:
+                                cursor.execute("SELECT phone_numbers FROM phone_numbers WHERE phone_numbers = %s;", (phone_numbers,))
+                                existing_phone_numbers = cursor.fetchone()
+                                if existing_phone_numbers is None:
+                                    try:
+                                        cursor.execute("INSERT INTO phone_numbers (phone_numbers) VALUES (%s);", (phone_numbers,))
+                                        saved_phone_numbers += 1
+                                    except Exception as e:
+                                        pass
                             connection.commit()
-                            logging.info("Команда успешно выполнена")
-                            update.message.reply_text('Номера телефонов успешно сохранены в БД.')
+                            if saved_phone_numbers > 0:
+                                logging.info("Команда успешно выполнена")
+                                update.message.reply_text(f'Сохранено {saved_phone_numbers} новых телефонных номеров в БД.')
+                            else:
+                                update.message.reply_text('Все телефонные номера уже существуют в БД.')
                     except (Exception, Error) as error:
                         logging.error("Ошибка при работе с PostgreSQL: %s", error)
                         update.message.reply_text(f"Ошибка при работе с PostgreSQL: {error}")
             except (Exception, Error) as error:
-                logging.error("Ошибка при подключении к БД: %s", error)
-                update.message.reply_text(f"Ошибка при подключении к БД: {error}")
+                logging.error("Ошибка при работе с PostgreSQL: %s", error)
+                update.message.reply_text(f"Ошибка при работе с PostgreSQL: {error}")
         else:
             update.message.reply_text('Номера телефонов не найдены.')
     else:
