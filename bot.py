@@ -320,22 +320,26 @@ def get_phone_numbers(update: Update, command):
         update.message.reply_text("Ошибка подключения к базе данных")
 
 
-def get_repl_logs(update: Update, context):
-    connection = psycopg2.connect( host=DB_HOST, port=DB_PORT, database=DB_DATABASE, user=DB_USER, password=DB_PASSWORD )
-    cursor = connection.cursor()
-    
-    data = cursor.execute("SELECT pg_read_file(pg_current_logfile());")
-    data = cursor.fetchall()
-    data = str(data).replace('\\n', '\n').replace('\\t', '\t')[2:-1]
-    answer = 'Логи репликации:\n'
+def get_repl_logs (update: Update, context):
+    logging.info('Логи репликации')
+    update.message.reply_text("Поиск логов")
+    result= ssh_connect(update, 'cat /var/log/postgresql/postgresql-14-main.log | grep "replication"') 
+    if result:
+        result_lines = result.split('n')
 
-    for str1 in data.split('\n'):
-        if DB_REPL_USER in str1:
-            answer += str1 + '\n'
-    if len(answer) == 17:
-        answer = 'События репликации не обнаружены'
-    for x in range(0, len(answer), 4096):
-        update.message.reply_text(answer[x:x+4096])
+        chunk = ''
+        for line in result_lines:
+            if len(chunk + line) <= 4000:  # Ограничение по размеру сообщения
+                chunk += line + 'n'
+            else:
+                update.message.reply_text(chunk)
+                chunk = line + 'n'
+        # Отправляем оставшийся кусочек
+        if chunk:
+            update.message.reply_text(chunk)
+            
+    return ConversationHandler.END
+
 
 
 def helpCommand(update: Update, context):
