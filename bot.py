@@ -247,28 +247,28 @@ def find_phone_number(update: Update, context):
 def confirm_save_number(update: Update, context):
     user_input = update.message.text.lower()
     if user_input == "да":
-        if 'phone_list' in context.user_data and context.user_data['phone_list']:
+        if 'email_list' in context.user_data and context.user_data['email_list']:
             try:
-                connection, cursor = db_connect()
+                connection, cursor = db_connect(update)
                 if connection is not None and cursor is not None:
                     try:
                         with connection, cursor:
-                            saved_phone_numbers = 0
-                            for phone_numbers in context.user_data['phone_list']:
-                                cursor.execute("SELECT phone_numbers FROM phone_numbers WHERE phone_numbers = %s;", (phone_numbers,))
-                                existing_phone_numbers = cursor.fetchone()
-                                if existing_phone_numbers is None:
+                            saved_emails = 0
+                            for email in context.user_data['email_list']:
+                                cursor.execute("SELECT phone_numbers FROM phone_number WHERE phone_number= %s;", (phone_number,))
+                                existing_email = cursor.fetchone()
+                                if existing_email is None:
                                     try:
-                                        cursor.execute("INSERT INTO phone_numbers (phone_numbers) VALUES (%s);", (phone_numbers,))
-                                        saved_phone_numbers += 1
+                                        cursor.execute("INSERT INTO phone(phone_number) VALUES (%s);", (phone_number,))
+                                        saved_emails += 1
                                     except Exception as e:
                                         pass
                             connection.commit()
-                            if saved_phone_numbers > 0:
+                            if saved_emails > 0:
                                 logging.info("Команда успешно выполнена")
-                                update.message.reply_text(f'Сохранено {saved_phone_numbers} новых телефонных номеров в БД.')
+                                update.message.reply_text(f'Сохранено {saved_emails} новых email адресов в БД.')
                             else:
-                                update.message.reply_text('Все телефонные номера уже существуют в БД.')
+                                update.message.reply_text('Все телефоны адреса уже существуют в БД.')
                     except (Exception, Error) as error:
                         logging.error("Ошибка при работе с PostgreSQL: %s", error)
                         update.message.reply_text(f"Ошибка при работе с PostgreSQL: {error}")
@@ -276,9 +276,9 @@ def confirm_save_number(update: Update, context):
                 logging.error("Ошибка при работе с PostgreSQL: %s", error)
                 update.message.reply_text(f"Ошибка при работе с PostgreSQL: {error}")
         else:
-            update.message.reply_text('Номера телефонов не найдены.')
+            update.message.reply_text(' телефоны адреса не найдены.')
     else:
-        update.message.reply_text('Номера телефонов не сохранены.')
+        update.message.reply_text(' телефоны  адреса не сохранены.')
     return ConversationHandler.END
 
 def get_emails(update: Update, command):
