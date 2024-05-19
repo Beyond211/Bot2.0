@@ -233,6 +233,9 @@ def find_phone_number(update: Update, context):
     if not phoneNumberList:
         update.message.reply_text('Телефонные номера не найдены')
         return ConversationHandler.END
+
+    unique_phone_numbers = set(phoneNumberList)
+    unique_phone_list = list(unique_phone_numbers)
     
     phoneNumbers = ''
     for i, phone_number in enumerate(phoneNumberList, 1):
