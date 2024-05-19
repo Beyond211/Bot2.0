@@ -160,20 +160,24 @@ def find_emailCommand(update: Update, context):
 
 def find_email(update: Update, context):
     user_input = update.message.text
-    emailRegex = re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b')
+    emailRegex = re.compile(r'[\w\.-]+@[\w\.-]+')
     emailList = emailRegex.findall(user_input)
 
     if not emailList:
         update.message.reply_text('Email адреса не найдены')
         return ConversationHandler.END
     
+    unique_emails = set(emailList)
+    unique_email_list = list(unique_emails) 
+
     emails = ''
-    for i, email in enumerate(emailList, 1):
+    for i, email in enumerate(unique_email_list, 1):
         emails += f'{i}. {email}\n'
     update.message.reply_text(emails)
-    context.user_data['email_list'] = emailList
+    context.user_data['email_list'] = unique_email_list
     update.message.reply_text('Хотите сохранить найденные адреса в БД?[Да|нет]: ')
     return 'confirm_save_email'
+
 
 def confirm_save_email(update: Update, context):
     user_input = update.message.text.lower()
@@ -184,14 +188,22 @@ def confirm_save_email(update: Update, context):
                 if connection is not None and cursor is not None:
                     try:
                         with connection, cursor:
+                            saved_emails = 0
                             for email in context.user_data['email_list']:
-                                try:
-                                    cursor.execute("INSERT INTO email (email) VALUES (%s);", (email,))
-                                except Exception as e:
-                                    pass
-                                connection.commit()                            
-                            logging.info("Команда успешно выполнена")
-                            update.message.reply_text('Email адреса успешно сохранены в БД.')
+                                cursor.execute("SELECT email FROM email WHERE email = %s;", (email,))
+                                existing_email = cursor.fetchone()
+                                if existing_email is None:
+                                    try:
+                                        cursor.execute("INSERT INTO email (email) VALUES (%s);", (email,))
+                                        saved_emails += 1
+                                    except Exception as e:
+                                        pass
+                            connection.commit()
+                            if saved_emails > 0:
+                                logging.info("Команда успешно выполнена")
+                                update.message.reply_text(f'Сохранено {saved_emails} новых email адресов в БД.')
+                            else:
+                                update.message.reply_text('Все email адреса уже существуют в БД.')
                     except (Exception, Error) as error:
                         logging.error("Ошибка при работе с PostgreSQL: %s", error)
                         update.message.reply_text(f"Ошибка при работе с PostgreSQL: {error}")
@@ -203,6 +215,7 @@ def confirm_save_email(update: Update, context):
     else:
         update.message.reply_text('Email адреса не сохранены.')
     return ConversationHandler.END
+
 
 
 def findPhoneNumbersCommand(update: Update, context):
