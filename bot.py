@@ -318,6 +318,7 @@ def get_phone_numbers(update: Update, command):
             connection.close()
     else:
         update.message.reply_text("Ошибка подключения к базе данных")
+    return None
 
 
 def get_repl_logs (update: Update, context):
