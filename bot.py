@@ -160,7 +160,7 @@ def find_emailCommand(update: Update, context):
 
 def find_email(update: Update, context):
     user_input = update.message.text
-    emailRegex = re.compile(r'[\w\.-]+@[\w\.-]+')
+    emailRegex = re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b')
     emailList = emailRegex.findall(user_input)
 
     if not emailList:
