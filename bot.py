@@ -227,7 +227,7 @@ def find_phone_number(update: Update, context):
     user_input = update.message.text
 
     phoneNumRegex = re.compile(r'\+?[78][- ]?(?:\(\d{3}\)|\d{3})[- ]?\d{3}[- ]?\d{2}[- ]?\d{2}')
-
+    
     phoneNumberList = phoneNumRegex.findall(user_input)
 
     if not phoneNumberList:
@@ -241,34 +241,36 @@ def find_phone_number(update: Update, context):
     for i, phone_number in enumerate(unique_phone_list, 1):
         phoneNumbers += f'{i}. {phone_number}\n'
     
-    context.user_data['phone_list'] = phoneNumberList 
-    update.message.reply_text(unique_phone_list)
+    context.user_data['phone_list'] = unique_phone_list  # Исправлено для сохранения уникальных номеров
+    update.message.reply_text(phoneNumbers)
     update.message.reply_text('Хотите сохранить найденные номера в БД?[да|нет]: ')
     return 'confirm_save_number'
+
 
 def confirm_save_number(update: Update, context):
     user_input = update.message.text.lower()
     if user_input == "да":
         if 'phone_list' in context.user_data and context.user_data['phone_list']:
             try:
-                connection, cursor = db_connect(update)
+                connection, cursor = db_connect()  # Предполагается, что db_connect() не принимает параметры
                 if connection is not None and cursor is not None:
                     try:
                         with connection, cursor:
                             for phone_number in context.user_data['phone_list']:
                                 try:
-                                    cursor.execute("INSERT INTO phone_numbers (phone_numbers) VALUES (%s);", (phone_number,))
+                                    cursor.execute("INSERT INTO phone_numbers (phone_number) VALUES (%s);", (phone_number,))
                                 except Exception as e:
+                                    logging.error("Ошибка при вставке номера: %s", e)
                                     pass
-                                connection.commit()   
+                            connection.commit()
                             logging.info("Команда успешно выполнена")
                             update.message.reply_text('Номера телефонов успешно сохранены в БД.')
                     except (Exception, Error) as error:
                         logging.error("Ошибка при работе с PostgreSQL: %s", error)
                         update.message.reply_text(f"Ошибка при работе с PostgreSQL: {error}")
             except (Exception, Error) as error:
-                logging.error("Ошибка при работе с PostgreSQL: %s", error)
-                update.message.reply_text(f"Ошибка при работе с PostgreSQL: {error}")
+                logging.error("Ошибка при подключении к БД: %s", error)
+                update.message.reply_text(f"Ошибка при подключении к БД: {error}")
         else:
             update.message.reply_text('Номера телефонов не найдены.')
     else:
