@@ -238,11 +238,11 @@ def find_phone_number(update: Update, context):
     unique_phone_list = list(unique_phone_numbers)
     
     phoneNumbers = ''
-    for i, phone_number in enumerate(phoneNumberList, 1):
+    for i, phone_number in enumerate(unique_phone_list, 1):
         phoneNumbers += f'{i}. {phone_number}\n'
     
     context.user_data['phone_list'] = phoneNumberList 
-    update.message.reply_text(phoneNumbers)
+    update.message.reply_text(unique_phone_list)
     update.message.reply_text('Хотите сохранить найденные номера в БД?[да|нет]: ')
     return 'confirm_save_number'
 
