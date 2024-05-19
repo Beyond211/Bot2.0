@@ -247,14 +247,14 @@ def find_phone_number(update: Update, context):
 def confirm_save_number(update: Update, context):
     user_input = update.message.text.lower()
     if user_input == "да":
-        if 'email_list' in context.user_data and context.user_data['email_list']:
+        if 'phone_numbers_list' in context.user_data and context.user_data['phone_numbers_list']:
             try:
                 connection, cursor = db_connect(update)
                 if connection is not None and cursor is not None:
                     try:
                         with connection, cursor:
                             saved_emails = 0
-                            for email in context.user_data['email_list']:
+                            for email in context.user_data['phone_numbers_list']:
                                 cursor.execute("SELECT phone_numbers FROM phone_number WHERE phone_number= %s;", (phone_number,))
                                 existing_email = cursor.fetchone()
                                 if existing_email is None:
@@ -264,9 +264,9 @@ def confirm_save_number(update: Update, context):
                                     except Exception as e:
                                         pass
                             connection.commit()
-                            if saved_emails > 0:
+                            if saved_phone_numbers > 0:
                                 logging.info("Команда успешно выполнена")
-                                update.message.reply_text(f'Сохранено {saved_emails} новых email адресов в БД.')
+                                update.message.reply_text(f'Сохранено {saved_phone_numbers} новых phone_number адресов в БД.')
                             else:
                                 update.message.reply_text('Все телефоны адреса уже существуют в БД.')
                     except (Exception, Error) as error:
