@@ -15,6 +15,8 @@ from psycopg2 import Error
 load_dotenv()
 TOKEN = os.getenv('TOKEN')
 
+PATH_TO_LOGFILE = os.getenv('PATH_TO_LOGFILE')
+PATH_TO_TEMPFILE = os.getenv('PATH_TO_TEMPFILE')
 
 RM_HOST = os.getenv('RM_HOST')
 RM_PORT = os.getenv('RM_PORT')
@@ -284,6 +286,7 @@ def confirm_save_number(update: Update, context):
     return ConversationHandler.END
 
 
+
 def get_emails(update: Update, command):
     connection, cursor = db_connect(update)
 
@@ -482,35 +485,20 @@ def get_ss(update: Update, context):
         update.message.reply_text(result)
     return ConversationHandler.END
 
-def get_apt_list_Command(update: Update, context):
-    update.message.reply_text('Привет! Хотите вывести информацию обо всех пакетах или по конкретному пакету? Введите "all" для всех пакетов или название конкретного пакета.')
-    return get_apt_list
 
 def get_apt_list(update: Update, context):
-    user_choice = update.message.text.lower()
-    if user_choice == 'all':
-        result = ssh_connect(update, "dpkg --get-selections")
-        if result:
-            result_lines = result.split('n')
-            chunk = ''
-            for line in result_lines:
-                if len(chunk + line) <= 4000:  # Ограничение по размеру сообщения
-                    chunk += line + 'n'
-                else:
-                    update.message.reply_text(chunk)
-                    chunk = line + 'n'
-            # Отправляем оставшийся кусочек
-            update.message.reply_text(chunk)
-    else:
-        result = ssh_connect(update, f'apt show {user_choice}')
+    update.message.reply_text(f'Сбор информации об установленных пакетах. ')
+    psfp5 = update.message.text.split(' ')
+    if len(psfp5) > 1:
+        i = 1
+        command = ''
+        while i < len(psfp5):
+            command += f'{psfp5[i]} '
+            i += 1
+        result = ssh_connect(update, f'apt show {command}')
         update.message.reply_text(str(result)[0:100])
-    return ConversationHandler.END
-
-
-def get_services(update: Update, context):
-    update.message.reply_text('Сбор информации о запущенных процессах.')
-    
-    result = ssh_connect(update, "systemctl list-units --type=service --state=running")
+    else:
+        result = ssh_connect(update, "dpkg --get-selections")
     if result:
         result_lines = result.split('n')
         chunk = ''
@@ -521,9 +509,37 @@ def get_services(update: Update, context):
                 update.message.reply_text(chunk)
                 chunk = line + 'n'
         # Отправляем оставшийся кусочек
+        update.message.reply_text(chunk)
+    return ConversationHandler.END
+
+def FindServiceCommand(update: Update, context):
+    update.message.reply_text('Название сервиса: ')
+    return 'FindService'
+def FindService(update: Update, context):
+    
+    command =  update.message.text
+    result = ssh_connect(update, "dpkg -l | grep "+ command)
+    
+    update.message.reply_text(result)
+    return ConversationHandler.END
+
+def get_services(update: Update, context):
+    update.message.reply_text('Сбор информации о запущенных процессах.')
+    
+    result = ssh_connect(update, "systemctl list-units --type=service --state=running")
+    if result:
+        result_lines = result.split('\n')
+        chunk = ''
+        for line in result_lines:
+            if len(chunk + line) <= 4000:  # Ограничение по размеру сообщения
+                chunk += line + '\n'
+            else:
+                update.message.reply_text(chunk)
+                chunk = line + '\n'
+        # Отправляем оставшийся кусочек
         if chunk:
             update.message.reply_text(chunk)
-            
+    
     return ConversationHandler.END
 
 def main():
@@ -540,14 +556,6 @@ def main():
         fallbacks=[]
     )
     
-    conv_handler = ConversationHandler(
-        entry_points=[CommandHandler('get_apt_list', get_apt_list_Command)],
-        states={
-            'get_apt_list': [MessageHandler(Filters.text & ~Filters.command, get_apt_list)],
-        },
-        fallbacks=[]
-    )
-
     convHandlerFindEmail = ConversationHandler(
         entry_points=[CommandHandler('find_email', find_emailCommand)],
         states={
@@ -565,12 +573,20 @@ def main():
         fallbacks=[]
     )
      
+    convHandlerFindService = ConversationHandler(
+        entry_points=[CommandHandler('FindService', FindServiceCommand)],
+        states={
+            'FindService': [MessageHandler(Filters.text & ~Filters.command, FindService)],
+        },
+        fallbacks=[]
+    )
 
     dp.add_handler(CommandHandler("start", start))
     dp.add_handler(CommandHandler("help", helpCommand))
     dp.add_handler(convHandlerFindPhoneNumbers)
     dp.add_handler(convHandlerFindEmail)
     dp.add_handler(convHandlerVerifyPassword)
+    dp.add_handler(convHandlerFindService)
 
     dp.add_handler(MessageHandler(Filters.text & ~Filters.command, echo))
     dp.add_handler(CommandHandler("get_release", get_release))
