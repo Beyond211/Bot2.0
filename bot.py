@@ -220,27 +220,31 @@ def confirm_save_email(update: Update, context):
 
 def findPhoneNumbersCommand(update: Update, context):
     update.message.reply_text('Введите текст для поиска телефонных номеров: ')
-    return 'find_phone_number'
+
+    return 'findPhoneNumbers'
 
 
-def find_phone_number(update: Update, context):
+def findPhoneNumbers(update: Update, context):
     user_input = update.message.text
-    phoneNumRegex = re.compile(r'\+?[78][- ]?(?:\(\d{3}\)|\d{3})[- ]?\d{3}[- ]?\d{2}[- ]?\d{2}')
+
+    phoneNumRegex = re.compile(r'\+?\d{1}[-.\s]?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{2}[-.\s]?\d{2}')
+
     phoneNumberList = phoneNumRegex.findall(user_input)
 
     if not phoneNumberList:
         update.message.reply_text('Телефонные номера не найдены')
         return ConversationHandler.END
-
-    unique_phone_numbers = set(phoneNumberList)
-    unique_phone_list = list(unique_phone_numbers)
     
+    unique_phone_numbers = set(phoneNumberList)  # Используем множество для хранения уникальных номеров
+    unique_phone_list = list(unique_phone_numbers)  # Преобразуем множество обратно в список
+
     phoneNumbers = ''
-    for i, phone_numbers in enumerate(unique_phone_list, 1):
-        phoneNumbers += f'{i}. {phone_numbers}\n'
-    update.message.reply_text(phoneNumbers)
+    for i, phone_number in enumerate(unique_phone_list, 1):
+        phoneNumbers += f'{i}. {phone_number}\n'
+    
     context.user_data['phone_list'] = unique_phone_list
-    update.message.reply_text('Хотите сохранить найденные номера в БД?[да|нет]: ')
+    update.message.reply_text(phoneNumbers)
+    update.message.reply_text('Хотите сохранить найденные номера в БД?[Да|нет]: ')
     return 'confirm_save_number'
 
 
@@ -253,14 +257,22 @@ def confirm_save_number(update: Update, context):
                 if connection is not None and cursor is not None:
                     try:
                         with connection, cursor:
+                            saved_numbers = 0
                             for phone_number in context.user_data['phone_list']:
-                                try:
-                                    cursor.execute("INSERT INTO phone_numbers (phone_numbers) VALUES (%s);", (phone_numbers,))
-                                except Exception as e:
-                                    pass
-                                connection.commit()   
-                            logging.info("Команда успешно выполнена")
-                            update.message.reply_text('Номера телефонов успешно сохранены в БД.')
+                                cursor.execute("SELECT phone_numbers FROM phone_numbers WHERE phone_numbers = %s;", (phone_number,))
+                                existing_number = cursor.fetchone()
+                                if existing_number is None:
+                                    try:
+                                        cursor.execute("INSERT INTO phone_numbers (phone_numbers) VALUES (%s);", (phone_number,))
+                                        saved_numbers += 1
+                                    except Exception as e:
+                                        pass
+                            connection.commit()
+                            if saved_numbers > 0:
+                                logging.info("Команда успешно выполнена")
+                                update.message.reply_text(f'Сохранено {saved_numbers} новых номеров телефонов в БД.')
+                            else:
+                                update.message.reply_text('Все номера телефонов уже существуют в БД.')
                     except (Exception, Error) as error:
                         logging.error("Ошибка при работе с PostgreSQL: %s", error)
                         update.message.reply_text(f"Ошибка при работе с PostgreSQL: {error}")
@@ -272,6 +284,7 @@ def confirm_save_number(update: Update, context):
     else:
         update.message.reply_text('Номера телефонов не сохранены.')
     return ConversationHandler.END
+
 
 
 def get_emails(update: Update, command):
@@ -317,7 +330,6 @@ def get_phone_numbers(update: Update, command):
             connection.close()
     else:
         update.message.reply_text("Ошибка подключения к базе данных")
-    return None
 
 
 def get_repl_logs (update: Update, context):
