@@ -220,15 +220,11 @@ def confirm_save_email(update: Update, context):
 
 def findPhoneNumbersCommand(update: Update, context):
     update.message.reply_text('Введите текст для поиска телефонных номеров: ')
-
     return 'findPhoneNumbers'
-
 
 def findPhoneNumbers(update: Update, context):
     user_input = update.message.text
-
     phoneNumRegex = re.compile(r'\+?\d{1}[-.\s]?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{2}[-.\s]?\d{2}')
-
     phoneNumberList = phoneNumRegex.findall(user_input)
 
     if not phoneNumberList:
@@ -241,9 +237,8 @@ def findPhoneNumbers(update: Update, context):
     phoneNumbers = ''
     for i, phone_number in enumerate(unique_phone_list, 1):
         phoneNumbers += f'{i}. {phone_number}\n'
-    
-    context.user_data['phone_list'] = unique_phone_list
     update.message.reply_text(phoneNumbers)
+    context.user_data['phone_list'] = unique_phone_list
     update.message.reply_text('Хотите сохранить найденные номера в БД?[Да|нет]: ')
     return 'confirm_save_number'
 
@@ -550,7 +545,7 @@ def main():
     convHandlerFindPhoneNumbers = ConversationHandler(
         entry_points=[CommandHandler('find_phone_number', findPhoneNumbersCommand)],
         states={
-            'find_phone_number': [MessageHandler(Filters.text & ~Filters.command, findPhoneNumbers)],
+            'find_phone_number': [MessageHandler(Filters.text & ~Filters.command, find_phone_number)],
             'confirm_save_number': [MessageHandler(Filters.text & ~Filters.command, confirm_save_number)]
         },
         fallbacks=[]
