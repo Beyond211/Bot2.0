@@ -220,10 +220,10 @@ def confirm_save_email(update: Update, context):
 
 def findPhoneNumbersCommand(update: Update, context):
     update.message.reply_text('Введите текст для поиска телефонных номеров: ')
-    return 'find_phone_number'
+    return 'find_phone_numbers'
 
 
-def find_phone_number(update: Update, context):
+def find_phone_numbers(update: Update, context):
     user_input = update.message.text
     phoneNumRegex = re.compile(r'\+?[78][- ]?(?:\(\d{3}\)|\d{3})[- ]?\d{3}[- ]?\d{2}[- ]?\d{2}')
     phoneNumberList = phoneNumRegex.findall(user_input)
@@ -236,8 +236,8 @@ def find_phone_number(update: Update, context):
     unique_phone_list = list(unique_phone_numbers)
     
     phoneNumbers = ''
-    for i, phone_number in enumerate(unique_phone_list, 1):
-        phoneNumbers += f'{i}. {phone_number}\n'
+    for i, phone_numbers in enumerate(unique_phone_list, 1):
+        phoneNumbers += f'{i}. {phone_numbers}\n'
     update.message.reply_text(phoneNumbers)
     context.user_data['phone_list'] = unique_phone_list
     update.message.reply_text('Хотите сохранить найденные номера в БД?[да|нет]: ')
@@ -253,9 +253,9 @@ def confirm_save_number(update: Update, context):
                 if connection is not None and cursor is not None:
                     try:
                         with connection, cursor:
-                            for phone_number in context.user_data['phone_list']:
+                            for phone_numbers in context.user_data['phone_list']:
                                 try:
-                                    cursor.execute("INSERT INTO phone_numbers (phone_number) VALUES (%s);", (phone_number,))
+                                    cursor.execute("INSERT INTO phone_numbers (phone_numbers) VALUES (%s);", (phone_numbers,))
                                 except Exception as e:
                                     logging.error("Ошибка при вставке номера: %s", e)
                                     pass
@@ -536,9 +536,9 @@ def main():
     dp = updater.dispatcher
 
     convHandlerFindPhoneNumbers = ConversationHandler(
-        entry_points=[CommandHandler('find_phone_number', findPhoneNumbersCommand)],
+        entry_points=[CommandHandler('find_phone_numbers', findPhoneNumbersCommand)],
         states={
-            'find_phone_number': [MessageHandler(Filters.text & ~Filters.command, find_phone_number)],
+            'find_phone_numbers': [MessageHandler(Filters.text & ~Filters.command, find_phone_numbers)],
             'confirm_save_number': [MessageHandler(Filters.text & ~Filters.command, confirm_save_number)]
         },
         fallbacks=[]
