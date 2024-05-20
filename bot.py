@@ -154,35 +154,30 @@ def db_connect(update: Update):
         return None, None
 
 
-
-
-
-
-
-
-
-
-
 def find_emailCommand(update: Update, context):
     update.message.reply_text('Введите текст для поиска Email адресов: ')
     return 'find_email'
 
 def find_email(update: Update, context):
     user_input = update.message.text
-    emailRegex = re.compile(r'[\w\.-]+@[\w\.-]+')
+    emailRegex = re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b')
     emailList = emailRegex.findall(user_input)
 
     if not emailList:
         update.message.reply_text('Email адреса не найдены')
         return ConversationHandler.END
     
+    unique_emails = set(emailList)
+    unique_email_list = list(unique_emails) 
+
     emails = ''
-    for i, email in enumerate(emailList, 1):
+    for i, email in enumerate(unique_email_list, 1):
         emails += f'{i}. {email}\n'
     update.message.reply_text(emails)
-    context.user_data['email_list'] = emailList
+    context.user_data['email_list'] = unique_email_list
     update.message.reply_text('Хотите сохранить найденные адреса в БД?[Да|нет]: ')
     return 'confirm_save_email'
+
 
 def confirm_save_email(update: Update, context):
     user_input = update.message.text.lower()
@@ -193,14 +188,22 @@ def confirm_save_email(update: Update, context):
                 if connection is not None and cursor is not None:
                     try:
                         with connection, cursor:
+                            saved_emails = 0
                             for email in context.user_data['email_list']:
-                                try:
-                                    cursor.execute("INSERT INTO email (email) VALUES (%s);", (email,))
-                                except Exception as e:
-                                    pass
-                                connection.commit()                            
-                            logging.info("Команда успешно выполнена")
-                            update.message.reply_text('Email адреса успешно сохранены в БД.')
+                                cursor.execute("SELECT email FROM email WHERE email = %s;", (email,))
+                                existing_email = cursor.fetchone()
+                                if existing_email is None:
+                                    try:
+                                        cursor.execute("INSERT INTO email (email) VALUES (%s);", (email,))
+                                        saved_emails += 1
+                                    except Exception as e:
+                                        pass
+                            connection.commit()
+                            if saved_emails > 0:
+                                logging.info("Команда успешно выполнена")
+                                update.message.reply_text(f'Сохранено {saved_emails} новых email адресов в БД.')
+                            else:
+                                update.message.reply_text('Все email адреса уже существуют в БД.')
                     except (Exception, Error) as error:
                         logging.error("Ошибка при работе с PostgreSQL: %s", error)
                         update.message.reply_text(f"Ошибка при работе с PostgreSQL: {error}")
@@ -217,58 +220,60 @@ def confirm_save_email(update: Update, context):
 
 def findPhoneNumbersCommand(update: Update, context):
     update.message.reply_text('Введите текст для поиска телефонных номеров: ')
+    return 'find_phone_number'
 
-    return 'findPhoneNumbers'
 
-
-def findPhoneNumbers(update: Update, context):
+def find_phone_number(update: Update, context):
     user_input = update.message.text
-
-    phoneNumRegex = re.compile(r'\+?\d{1}[-.\s]?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{2}[-.\s]?\d{2}')
-
+    phoneNumRegex = re.compile(r'\+?[78][- ]?(?:\(\d{3}\)|\d{3})[- ]?\d{3}[- ]?\d{2}[- ]?\d{2}')
     phoneNumberList = phoneNumRegex.findall(user_input)
 
     if not phoneNumberList:
         update.message.reply_text('Телефонные номера не найдены')
         return ConversationHandler.END
+
+    unique_phone_numbers = set(phoneNumberList)
+    unique_phone_list = list(unique_phone_numbers)
     
     phoneNumbers = ''
-    for i, phone_number in enumerate(phoneNumberList, 1):
+    for i, phone_number in enumerate(unique_phone_list, 1):
         phoneNumbers += f'{i}. {phone_number}\n'
-    
-    context.user_data['phone_list'] = phoneNumberList 
     update.message.reply_text(phoneNumbers)
-    update.message.reply_text('Хотите сохранить найденные номера в БД?[Да|нет]: ')
+    context.user_data['phone_list'] = unique_phone_list
+    update.message.reply_text('Хотите сохранить найденные номера в БД?[да|нет]: ')
     return 'confirm_save_number'
+
 
 def confirm_save_number(update: Update, context):
     user_input = update.message.text.lower()
     if user_input == "да":
         if 'phone_list' in context.user_data and context.user_data['phone_list']:
             try:
-                connection, cursor = db_connect(update)
+                connection, cursor = db_connect(update)  # Предполагается, что db_connect() принимает параметр update
                 if connection is not None and cursor is not None:
                     try:
                         with connection, cursor:
                             for phone_number in context.user_data['phone_list']:
                                 try:
-                                    cursor.execute("INSERT INTO phone_numbers (phone_numbers) VALUES (%s);", (phone_number,))
+                                    cursor.execute("INSERT INTO phone_numbers (phone_number) VALUES (%s);", (phone_number,))
                                 except Exception as e:
+                                    logging.error("Ошибка при вставке номера: %s", e)
                                     pass
-                                connection.commit()   
+                            connection.commit()
                             logging.info("Команда успешно выполнена")
                             update.message.reply_text('Номера телефонов успешно сохранены в БД.')
                     except (Exception, Error) as error:
                         logging.error("Ошибка при работе с PostgreSQL: %s", error)
                         update.message.reply_text(f"Ошибка при работе с PostgreSQL: {error}")
             except (Exception, Error) as error:
-                logging.error("Ошибка при работе с PostgreSQL: %s", error)
-                update.message.reply_text(f"Ошибка при работе с PostgreSQL: {error}")
+                logging.error("Ошибка при подключении к БД: %s", error)
+                update.message.reply_text(f"Ошибка при подключении к БД: {error}")
         else:
             update.message.reply_text('Номера телефонов не найдены.')
     else:
         update.message.reply_text('Номера телефонов не сохранены.')
     return ConversationHandler.END
+
 
 def get_emails(update: Update, command):
     connection, cursor = db_connect(update)
@@ -293,8 +298,6 @@ def get_emails(update: Update, command):
     return None
 
 
-
-
 def get_phone_numbers(update: Update, command):
     connection, cursor = db_connect(update)
 
@@ -315,12 +318,12 @@ def get_phone_numbers(update: Update, command):
             connection.close()
     else:
         update.message.reply_text("Ошибка подключения к базе данных")
+    return None
 
 
 def get_repl_logs (update: Update, context):
     logging.info('Логи репликации')
     update.message.reply_text("Поиск логов")
-   # result= ssh_connect(update, "cat /var/log/postgresql/postgresql-14-main.log | tail -n 15")
     result= ssh_connect(update, 'cat /var/log/postgresql/postgresql-14-main.log | grep "replication"') 
     if result:
         result_lines = result.split('n')
@@ -338,9 +341,33 @@ def get_repl_logs (update: Update, context):
             
     return ConversationHandler.END
 
- 
+
+
 def helpCommand(update: Update, context):
-    update.message.reply_text('Help!  /checkPassword /find_email /findPhoneNumbers /get_release /get_uname /get_uptime /get_df /get_free /get_mpstat /get_w /get_auths /get_critical /get_ps /get_ss /get_apt_list /get_services  /get_emails /get_phone_numbers /get_repl_logs')
+    help_text = (
+        "/start - Начать взаимодействие с ботом\n"
+        "/help - Список команд и их описание\n"
+        "/verify_password - Проверка сложности пароля\n"
+        "/find_email - Найти и сохранить email адреса\n"
+        "/find_phone_numbers - Найти и сохранить телефонные номера\n"
+        "/get_release - Информация о версии системы\n"
+        "/get_uname - Информация о системе\n"
+        "/get_uptime - Время работы системы\n"
+        "/get_df - Состояние файловой системы\n"
+        "/get_free - Состояние оперативной памяти\n"
+        "/get_mpstat - Производительность системы\n"
+        "/get_w - Информация о работающих пользователях\n"
+        "/get_auths - Последние 10 входов в систему\n"
+        "/get_critical - Последние 5 критических событий\n"
+        "/get_ps - Информация о запущенных процессах\n"
+        "/get_ss - Информация об используемых портах\n"
+        "/get_apt_list - Информация об установленных пакетах\n"
+        "/get_services - Информация о запущенных сервисах\n"
+        "/get_repl_logs - Логи репликации\n"
+        "/get_emails - Получить сохраненные email адреса\n"
+        "/get_phone_numbers - Получить сохраненные номера телефонов\n"
+    )
+    update.message.reply_text(help_text)
 
 
 def get_release(update: Update, context):
@@ -440,7 +467,6 @@ def get_ps(update: Update, context):
     return ConversationHandler.END
 
 
-
 def get_ss(update: Update, context):
     update.message.reply_text(f'Сбор информации об используемых портах.')
     result = ssh_connect(update, "ss -tuln")
@@ -475,8 +501,6 @@ def get_apt_list(update: Update, context):
         update.message.reply_text(chunk)
     return ConversationHandler.END
 
-
- 
 def FindServiceCommand(update: Update, context):
     update.message.reply_text('Название сервиса: ')
     return 'FindService'
@@ -493,20 +517,19 @@ def get_services(update: Update, context):
     
     result = ssh_connect(update, "systemctl list-units --type=service --state=running")
     if result:
-        result_lines = result.split('n')
+        result_lines = result.split('\n')
         chunk = ''
         for line in result_lines:
             if len(chunk + line) <= 4000:  # Ограничение по размеру сообщения
-                chunk += line + 'n'
+                chunk += line + '\n'
             else:
                 update.message.reply_text(chunk)
-                chunk = line + 'n'
+                chunk = line + '\n'
         # Отправляем оставшийся кусочек
         if chunk:
             update.message.reply_text(chunk)
-            
+    
     return ConversationHandler.END
-
 
 def main():
     updater = Updater(TOKEN, use_context=True)
@@ -514,9 +537,9 @@ def main():
     dp = updater.dispatcher
 
     convHandlerFindPhoneNumbers = ConversationHandler(
-        entry_points=[CommandHandler('findPhoneNumbers', findPhoneNumbersCommand)],
+        entry_points=[CommandHandler('find_phone_number', findPhoneNumbersCommand)],
         states={
-            'findPhoneNumbers': [MessageHandler(Filters.text & ~Filters.command, findPhoneNumbers)],
+            'find_phone_number': [MessageHandler(Filters.text & ~Filters.command, find_phone_number)],
             'confirm_save_number': [MessageHandler(Filters.text & ~Filters.command, confirm_save_number)]
         },
         fallbacks=[]
@@ -547,15 +570,13 @@ def main():
         fallbacks=[]
     )
 
-
-
     dp.add_handler(CommandHandler("start", start))
     dp.add_handler(CommandHandler("help", helpCommand))
     dp.add_handler(convHandlerFindPhoneNumbers)
     dp.add_handler(convHandlerFindEmail)
     dp.add_handler(convHandlerVerifyPassword)
     dp.add_handler(convHandlerFindService)
-        
+
     dp.add_handler(MessageHandler(Filters.text & ~Filters.command, echo))
     dp.add_handler(CommandHandler("get_release", get_release))
     dp.add_handler(CommandHandler("get_uname", get_uname))
@@ -575,7 +596,6 @@ def main():
 
     dp.add_handler(CommandHandler("get_emails", get_emails))
     dp.add_handler(CommandHandler("get_phone_numbers", get_phone_numbers))
-
 
     updater.start_polling()
 
