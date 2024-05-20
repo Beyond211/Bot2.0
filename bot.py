@@ -249,25 +249,24 @@ def confirm_save_number(update: Update, context):
     if user_input == "да":
         if 'phone_list' in context.user_data and context.user_data['phone_list']:
             try:
-                connection, cursor = db_connect(update)  # Предполагается, что db_connect() принимает параметр update
+                connection, cursor = db_connect(update)
                 if connection is not None and cursor is not None:
                     try:
                         with connection, cursor:
                             for phone_number in context.user_data['phone_list']:
                                 try:
-                                    cursor.execute("INSERT INTO phone_numbers (phone_number) VALUES (%s);", (phone_number,))
+                                    cursor.execute("INSERT INTO phone_numbers (phone_numbers) VALUES (%s);", (phone_numbers,))
                                 except Exception as e:
-                                    logging.error("Ошибка при вставке номера: %s", e)
                                     pass
-                            connection.commit()
+                                connection.commit()   
                             logging.info("Команда успешно выполнена")
                             update.message.reply_text('Номера телефонов успешно сохранены в БД.')
                     except (Exception, Error) as error:
                         logging.error("Ошибка при работе с PostgreSQL: %s", error)
                         update.message.reply_text(f"Ошибка при работе с PostgreSQL: {error}")
             except (Exception, Error) as error:
-                logging.error("Ошибка при подключении к БД: %s", error)
-                update.message.reply_text(f"Ошибка при подключении к БД: {error}")
+                logging.error("Ошибка при работе с PostgreSQL: %s", error)
+                update.message.reply_text(f"Ошибка при работе с PostgreSQL: {error}")
         else:
             update.message.reply_text('Номера телефонов не найдены.')
     else:
